@@ -48,7 +48,7 @@ C<:Moan> - This trigger switches on :Complain, but will also display the normal 
 
 use 5.010;
 
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 $Module::Loader::InstallMissing = 0;
 $Module::Loader::Complain       = 0;
 $Module::Loader::Moan           = 0;
@@ -148,7 +148,7 @@ sub _option {
 
 sub _getbinpath {
     my $path;
-    if ($ENV{$_}) { $path = $ENV{$_}; }
+    if ($ENV{_}) { $path = $ENV{_}; }
     else { $path = $^X; }
    
     if ($path) {

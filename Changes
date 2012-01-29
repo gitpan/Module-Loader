@@ -1,5 +1,8 @@
 Revision history for Module-Loader
 
+0.003   29/01/2012
+        Sorry about a very early release, but I have discovered a bug in _getbinpath where it attempts to get the path from the environment variable, but it uses an invalid key. Argh..
+
 0.002   29/01/2012
         Added is_module_loaded method to check if a specified module is currently loaded. Returns 1 if it is, 0 if it isn't.
 
