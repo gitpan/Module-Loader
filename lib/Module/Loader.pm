@@ -48,7 +48,7 @@ C<:Moan> - This trigger switches on :Complain, but will also display the normal 
 
 use 5.010;
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 $Module::Loader::InstallMissing = 0;
 $Module::Loader::Complain       = 0;
 $Module::Loader::Moan           = 0;
@@ -57,6 +57,7 @@ sub import {
     my ($class, @modules) = @_;
     my $scope = _getscope();
     *{$scope . "::load_module"} = \&load_module;
+    *{$scope . "::is_module_loaded"} = \&is_module_loaded;
     if (@modules == 1 && ref($modules[0])) {
         print STDERR __PACKAGE__ . ": Not expecting a reference\n";
         exit;
@@ -190,6 +191,34 @@ sub load_module {
             1;
         };
     }
+}
+
+=head2 is_module_loaded
+
+Simply performs a little test to see if the specified module is loaded. Returns 1 on success, or 0 on failure
+
+    if (is_module_loaded 'Goose') {
+        print "It's loaded!\n";
+    }
+    else {
+        print "Module not loaded :-(\n";
+        load_module 'Goose';
+    }
+
+=cut
+
+sub is_module_loaded {
+    my $mod = shift;
+    my $scope = _getscope();
+    my $pkg = "$scope\::";
+    my $match = 0;
+    for (keys %$pkg) {
+        $match++
+            if $_ eq "$mod\::";
+    }
+
+    return 1 if $match > 0;
+    return 0 if $match == 0;
 }
 
 =head1 BUGS
