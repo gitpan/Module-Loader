@@ -1,11 +1,12 @@
-Revision history for Module-Loader
+Revision history for Perl module Module::Loader
 
-0.003   29/01/2012
-        Sorry about a very early release, but I have discovered a bug in _getbinpath where it attempts to get the path from the environment variable, but it uses an invalid key. Argh..
-
-0.002   29/01/2012
-        Added is_module_loaded method to check if a specified module is currently loaded. Returns 1 if it is, 0 if it isn't.
-
-0.001   29/01/2012
-        First version, released on an unsuspecting world.
+0.01 2014-10-05 NEILB
+    - Plugin::Loader renamed to Module::Loader. Writing the doc and then
+      starting a blog post about it make me realise that Module::Loader
+      would be a much more appropriate name. Thanks to BRADH for giving
+      me the Module::Loader name.
+    - Tests were failing on win32. Needed to change
+            use lib 't/lib';
+      To a more OS-portable version. It was adding the directory ok, but
+      the regexp to strip the head of the path wasn't working.
 

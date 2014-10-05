@@ -1,27 +1,28 @@
 ---
-abstract: 'Load modules dynamically and installs missing ones'
+abstract: 'finding and loading modules in a given namespace'
 author:
-  - 'Brad Haywood <brad@geeksware.net>'
-  - 'Brad Haywood <brad@geeksware.net>'
+  - 'Neil Bowers <neilb@cpan.org>'
 build_requires:
-  ExtUtils::MakeMaker: 6.57
-  Test::More: 0
+  Test::More: '0.88'
+  strict: '0'
+  warnings: '0'
 configure_requires:
-  ExtUtils::MakeMaker: 6.57
-distribution_type: module
-dynamic_config: 1
-generated_by: 'Module::Install version 1.04'
+  ExtUtils::MakeMaker: '0'
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 5.020, CPAN::Meta::Converter version 2.141170'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+  version: '1.4'
 name: Module-Loader
-no_index:
-  directory:
-    - inc
-    - t
 requires:
-  perl: 5.10.0
+  Carp: '0'
+  File::Spec::Functions: '0'
+  Module::Runtime: '0'
+  Moo: '0'
+  Path::Iterator::Rule: '0'
+  perl: '5.006'
 resources:
-  license: http://dev.perl.org/licenses/
-version: 0.003
+  homepage: https://github.com/neilbowers/Module-Loader
+  repository: https://github.com/neilbowers/Module-Loader.git
+version: '0.01'

@@ -1,240 +1,166 @@
 package Module::Loader;
+$Module::Loader::VERSION = '0.01';
+use 5.006;
+use Moo;
+use Path::Iterator::Rule;
+use File::Spec::Functions   qw/ catfile splitdir /;
+use Carp                    qw/ croak /;
+
+has 'max_depth' => (is => 'rw');
+
+sub find_modules
+{
+    my ($self, $base) = @_;
+    my @baseparts     = split(/::/, $base);
+    my %modules;
+
+    foreach my $directory (@INC) {
+        my $path = catfile($directory, @baseparts);
+        next unless -d $path;
+
+        my $rule = Path::Iterator::Rule->new->perl_module;
+        $rule->max_depth($self->max_depth) if $self->max_depth;
+
+        foreach my $file ($rule->all($path)) {
+            (my $modpath = $file) =~ s!^\Q$directory\E.|\.pm$!!g;
+
+            my $module = join('::', splitdir($modpath));
+
+            # Using a hash means that even if a module is installed
+            # in more than one place, it will only be reported once
+            $modules{ $module }++;
+        }
+    }
+
+    return keys(%modules);
+}
+
+sub load
+{
+    my ($self, @modules) = @_;
+
+    require Module::Runtime;
+    foreach my $module (@modules) {
+        Module::Runtime::require_module($module);
+    }
+}
+
+1;
+
+=encoding utf8
 
 =head1 NAME
 
-Module::Loader - Load modules dynamically and installs missing ones
-
-=head1 DESCRIPTION
-
-This module does exactly what it says on the tin. It's a module loader. You can load multiple modules in one go by importing them with Module::Loader, or load a single one with C<load_module>, which also accepts an array to pass to the module.
-Module::Loader comes with some import options to switch on/off verbose information and the optional ability to automatically download any missing modules once the script exists. Please be aware this feature is still under heavy development and needs some tweaking. For it to work properly you'll want to make sure you don't need sudo to install modules (ie: App::perlbrew).
+Module::Loader - finding and loading modules in a given namespace
 
 =head1 SYNOPSIS
 
+ use Module::Loader;
 
-    use Module::Loader qw/
-        Goose
-        Try::Tiny
-    /;
+ my $loader  = Module::Loader->new;
+ my @plugins = $loader->find_modules('MyApp::Plugin');
 
-Or to load a single module
-    
-    BEGIN {
-        load_module 'Moose';
-        load_module 'Try::Tiny';
-        load_module 'Goose' => qw/:Debug :UseMoose/;
-    }   
+ foreach my $plugin (@plugins) {
+    $loader->load($plugin);
+ }
 
-=head1 TRIGGERS
+=head1 DESCRIPTION
 
-Module::Loader has 3 tiggers, which are all OFF by default. Triggers can be turned on 
-by passing it as an import option when you C<use Module::Loader>. All options MUST have a ':' in 
-front of them or it will try to load it as a module.
+This module provides methods for finding modules in a given namespace,
+and then loading them. It is intended for use in situations where
+you're looking for plugins, and then loading one or more of them.
 
-    use Module::Loader qw/
-        :InstallMissing
-        :Complain
-        
-        Goose
-    /;
+This module was inspired by L<Mojo::Loader>, which I have used in
+a number of projects. But some people were wary of requiring L<Mojolicious>
+just to get a module loader, which prompted me to create C<Module::Loader>.
 
-C<:InstallMissing> - Once the script exists, :InstallMissing will attempt to fetch any missing modules via cpanm (App::cpanminus).
+Note: this module was initially called C<Plugin::Loader>, but I realised
+that C<Module::Loader> was a more appropriate name.
 
-C<:Complain> - This will turn on some minor verbose information, pretty much just saying it couldn't find a module without printing out the entire contents of @INC to your screen.
+=head2 max_depth
 
-C<:Moan> - This trigger switches on :Complain, but will also display the normal ugly Perl errors for a bit more information in case you need it.
+C<Module::Loader> has an optional C<max_depth> attribute.
+If you set this to 1, then C<find_modules> will only report modules
+that are immediately within the namespace specified.
 
-=cut
+Let's say you have all of the CPAN plugins for the template toolkit
+installed locally. If you don't specify C<max_depth>, then C<find_modules('Template::Plugin')>
+would return L<Template::Plugin::Filter::Minify::JavaScript>
+as well as L<Template::Plugin::File>. If you set C<max_depth> to 1,
+then you'd get the latter but not the former.
 
-use 5.010;
+Why might you want to do that?
 
-our $VERSION = '0.003';
-$Module::Loader::InstallMissing = 0;
-$Module::Loader::Complain       = 0;
-$Module::Loader::Moan           = 0;
+You might have a convention where plugins are the modules immediately
+within the specified namespace, but that each plugin can have additional
+modules within its own namespace.
 
-sub import {
-    my ($class, @modules) = @_;
-    my $scope = _getscope();
-    *{$scope . "::load_module"} = \&load_module;
-    *{$scope . "::is_module_loaded"} = \&is_module_loaded;
-    if (@modules == 1 && ref($modules[0])) {
-        print STDERR __PACKAGE__ . ": Not expecting a reference\n";
-        exit;
-    }
-    my $not_found = [];
-    for my $mod (@modules) {
-        if (substr($mod, 0, 1) eq ':') {
-            # found a Module::Loader option
-            _option($mod);
-            next;
-        }
-        unless (scalar(@modules) == 0) {
-            eval qq{
-                package $scope;
-                use $mod;
-                1;
-            };
+So typically you'll either not set C<max_depth>, or you'll set it to 1.
 
-            if ($@) {
-                my $err = $@;
-                if ($err =~ /Can't locate/) {
-                    warn "Module::Loader - Couldn't load $mod. Not found.\n"
-                        if $Module::Loader::Complain;
-                    warn $@
-                        if $Module::Loader::Moan;
-                    push @$not_found, $mod;
-                }
-                else {
-                    warn "Module::Loader - Couldn't load $mod because of an unknown error\n"
-                        if $Module::Loader::Complain;
-                    warn $@
-                        if $Module::Loader::Moan;
-                }
-            }
-        }
-    }
+=head1 METHODS
 
-    if (scalar @$not_found > 0) {
-        if ($Module::Loader::InstallMissing) {
-            my $pid;
-            my $bin = _getbinpath();
-            print "Installing missing modules using cpanm...\n";
-            my $cpanm = "$bin/cpanm";
-            unless ( -f $cpanm ) {
-                die "Cannot fetch modules if cpanm is not installed. Please install App::cpanminus then re-run\n";
-            }
+=head2 find_modules
 
-            $SIG{CHLD} = sub { wait };
-            
-            unless ($pid = fork) {
-                unless (fork) {
-                    exec "$bin/cpanm  " . join(' ', @$not_found);
-                }
-                exit 0;
-            }
-            waitpid($pid, 0);
-            print "Finished\n";
-        }
-        else {
-            print STDERR "The following modules were missing, but will not be installed\n";
-            for (@$not_found) {
-                print STDERR "    $_\n";
-            }
-            print STDERR "\n";
-        }
-    }
-}
+Takes a namespace, and returns all installed modules in that namespace,
+that were found in C<@INC>. For example:
 
-sub _getscope {
-    return (caller(1))[0];
-}
+ @plugins = $loader->find_modules('Template::Plugin');
 
-sub _option {
-    my $opt = shift;
-    given($opt) {
-        when (':InstallMissing') {
-            $Module::Loader::InstallMissing = 1;
-        }
-        when (':Complain') {
-            $Module::Loader::Complain = 1;
-        }
-        when (':Moan') {
-            $Module::Loader::Complain = 1;
-            $Module::Loader::Moan = 1;
-        }
-    }
-}
+By default this will find all modules in the given namespace,
+unless you've specified a maximum search depth, as described above.
 
-sub _getbinpath {
-    my $path;
-    if ($ENV{_}) { $path = $ENV{_}; }
-    else { $path = $^X; }
-   
-    if ($path) {
-        $path = substr($path, 0, -4);
-    }
-    return $path||die "Could not get Perl binary path\n";
-}
+=head2 load
 
-=head1 EXPORTED METHODS
+Takes a module name and tries to load the module.
+If loading fails, then we C<croak>.
 
-=head2 load_module
+=head1 SEE ALSO
 
-This method, well, it loads a module. The difference between this and the other one is this can 
-take an optional array to pass to the module on load, and you can use it to dynamically load other modules in your code.
+L<Mojo::Loader> was the inspiration for this module, but has
+a slightly different interface. In particular, it has C<max_depth>
+hard-coded to 1.
 
-    load_module 'ThisModule';
-    load_module 'ThatModule => qw/exported_method something_else/;
+L<Module::Pluggable> is effectively a role which gives a class the ability
+to find plugins within its namespace.
 
-=cut
+L<Module::Pluggable::Ordered> is similar to L<Module::Pluggable>,
+but lets you control the order in which modules are loaded.
 
-sub load_module {
-    my (@mod) = @_;
-    my $scope = caller;
-    my $has_attr = 0;
-    my $name = shift @mod;
-    $has_attr = 1
-        if scalar(@mod) > 0;
-    if ($has_attr) {
-        my $attr = join ' ', @mod;
-        eval qq{
-            package $scope;
-            use $name qw/$attr/;
-            1;
-        };
-    }
-    else {
-        eval qq{
-            package $scope;
-            use $name;
-            1;
-        };
-    }
-}
+L<all> will load all modules in a given namespace, eg with C<use all 'IO::*';>
 
-=head2 is_module_loaded
+L<lib::require::all> will load all modules found in a given I<directory>
+(as opposed to a namespace).
 
-Simply performs a little test to see if the specified module is loaded. Returns 1 on success, or 0 on failure
+L<MAD::Loader> provides functions for loading modules,
+but not for finding them.
 
-    if (is_module_loaded 'Goose') {
-        print "It's loaded!\n";
-    }
-    else {
-        print "Module not loaded :-(\n";
-        load_module 'Goose';
-    }
+L<Module::Find> provides a number of functions for finding and loading
+modules. It provides different functions depending on whether you want
+to limit the search depth to 1 or not: C<findallmod> vs C<findsubmod>.
 
-=cut
+L<Module::Recursive::Require> will load all modules in a given namespace,
+and return a list of the modules found / loaded.
+It lets you provide regexps for filtering out certain namespaces.
 
-sub is_module_loaded {
-    my $mod = shift;
-    my $scope = _getscope();
-    my $pkg = "$scope\::";
-    my $match = 0;
-    for (keys %$pkg) {
-        $match++
-            if $_ eq "$mod\::";
-    }
+L<Module::Require> provides two functions, C<require_regex>
+and C<require_glob> which will load all locally installed modules
+whose name matches a pattern (specified as a regular expression
+or glob-style pattern).
 
-    return 1 if $match > 0;
-    return 0 if $match == 0;
-}
+=head1 REPOSITORY
 
-=head1 BUGS
-
-Please e-mail brad@geeksware.net
+L<https://github.com/neilbowers/Module-Loader>
 
 =head1 AUTHOR
 
-Brad Haywood <brad@geeksware.net>
+Neil Bowers E<lt>neilb@cpan.orgE<gt>
 
-=head1 COPYRIGHT & LICENSE
+=head1 COPYRIGHT AND LICENSE
 
-Copyright 2011 the above author(s).
+This software is copyright (c) 2014 by Neil Bowers <neilb@cpan.org>.
 
-This sofware is free software, and is licensed under the same terms as perl itself.
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 
-1;
