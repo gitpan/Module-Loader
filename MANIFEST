@@ -10,6 +10,7 @@ lib/Module/Loader.pm
 t/01-require.t
 t/02-find-modules.t
 t/03-load.t
+t/04-search.t
 t/lib/LoadMe/Failing.pm
 t/lib/LoadMe/HollowVoice.pm
 t/lib/Monkey/Plugin/Bonobo.pm
