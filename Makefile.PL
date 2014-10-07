@@ -23,15 +23,14 @@ my %WriteMakefileArgs = (
     "Carp" => 0,
     "File::Spec::Functions" => 0,
     "Module::Runtime" => 0,
-    "Moo" => 0,
-    "Path::Iterator::Rule" => 0
-  },
-  "TEST_REQUIRES" => {
-    "Test::More" => "0.88",
+    "Path::Iterator::Rule" => 0,
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "0.02",
+  "TEST_REQUIRES" => {
+    "Test::More" => "0.88"
+  },
+  "VERSION" => "0.03",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -42,7 +41,6 @@ my %FallbackPrereqs = (
   "Carp" => 0,
   "File::Spec::Functions" => 0,
   "Module::Runtime" => 0,
-  "Moo" => 0,
   "Path::Iterator::Rule" => 0,
   "Test::More" => "0.88",
   "strict" => 0,

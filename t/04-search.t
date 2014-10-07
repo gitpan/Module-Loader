@@ -24,59 +24,46 @@ use Module::Loader;
 
 my ($loader, @modules);
 
-$loader = Module::Loader->new()
+$loader = Module::Loader->new(max_depth => 5)
           || BAIL_OUT("Can't instantiate Module::Loader");
 
 @modules = $loader->search('Monkey::Plugin');
 
-ok(grep { $_ eq 'Monkey::Plugin::Bonobo' } @modules,
+ok(grep({ $_ eq 'Monkey::Plugin::Bonobo' } @modules),
    "We should find Monkey::Plugin::Bonobo");
 
-ok(!grep { $_ eq 'Monkey::Plugin::Bonobo::Utilities' } @modules,
+ok(!grep({ $_ eq 'Monkey::Plugin::Bonobo::Utilities' } @modules),
    "We should NOT find Monkey::Plugin::Bonobo::Utilities");
 
-ok(grep { $_ eq 'Monkey::Plugin::Mandrill' } @modules,
+ok(grep({ $_ eq 'Monkey::Plugin::Mandrill' } @modules),
    "We should find Monkey::Plugin::Bonobo::Utilities");
 
-$loader->max_depth(1);
 @modules = $loader->search('Monkey::Plugin');
 
-ok(grep { $_ eq 'Monkey::Plugin::Bonobo' } @modules,
+ok(grep({ $_ eq 'Monkey::Plugin::Bonobo' } @modules),
    "We should find Monkey::Plugin::Bonobo");
 
-ok(!grep { $_ eq 'Monkey::Plugin::Bonobo::Utilities' } @modules,
+ok(!grep({ $_ eq 'Monkey::Plugin::Bonobo::Utilities' } @modules),
    "We should NOT find Monkey::Plugin::Bonobo::Utilities");
 
-ok(grep { $_ eq 'Monkey::Plugin::Mandrill' } @modules,
+ok(grep({ $_ eq 'Monkey::Plugin::Mandrill' } @modules),
    "We should find Monkey::Plugin::Bonobo::Utilities");
 
-$loader->max_depth(5);
-@modules = $loader->search('Monkey::Plugin');
+@modules = $loader->find_modules('Monkey::Plugin');
 
-ok(grep { $_ eq 'Monkey::Plugin::Bonobo' } @modules,
+ok(grep({ $_ eq 'Monkey::Plugin::Bonobo' } @modules),
    "We should find Monkey::Plugin::Bonobo");
 
-ok(!grep { $_ eq 'Monkey::Plugin::Bonobo::Utilities' } @modules,
-   "We should NOT find Monkey::Plugin::Bonobo::Utilities");
+ok(grep({ $_ eq 'Monkey::Plugin::Bonobo::Utilities' } @modules),
+   "We should find Monkey::Plugin::Bonobo::Utilities");
 
-ok(grep { $_ eq 'Monkey::Plugin::Mandrill' } @modules,
+ok(grep({ $_ eq 'Monkey::Plugin::Mandrill' } @modules),
    "We should find Monkey::Plugin::Bonobo::Utilities");
 
 # Without changing max_depth, it should still have value 5,
 # even though we've used search() after setting max_depth.
 
 ok($loader->max_depth == 5, "max_depth should still be set to 5");
-
-@modules = $loader->find_modules('Monkey::Plugin');
-
-ok(grep { $_ eq 'Monkey::Plugin::Bonobo' } @modules,
-   "We should find Monkey::Plugin::Bonobo");
-
-ok(grep { $_ eq 'Monkey::Plugin::Bonobo::Utilities' } @modules,
-   "We should find Monkey::Plugin::Bonobo::Utilities");
-
-ok(grep { $_ eq 'Monkey::Plugin::Mandrill' } @modules,
-   "We should find Monkey::Plugin::Bonobo::Utilities");
 
 done_testing;
 
